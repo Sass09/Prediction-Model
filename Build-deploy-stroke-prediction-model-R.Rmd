@@ -29,25 +29,31 @@ library(reshape2)
 library(randomForest)
 library(gridExtra)
 
+
+```
+
+
+```{r}
+df_strokemodel <- read.csv("healthcare-dataset-stroke-data.csv")
+library(dplyr)
+```
+
+
+## Pre-Processing 
+
+```{r}
+#drop Id
 df_strokemodel <- df_strokemodel %>%
   select(-id)
-```
 
-
-## Describe and explore the data
-
-```{r}
-glimpse(df_strokemodel)
-summary(df_strokemodel)
+#drop other 
 df_strokemodel <- df_strokemodel[!df_strokemodel$gender == 'Other',]
 
-```
 
-### Pre-Processing 
+df_strokemodel$bmi <- as.numeric(df_strokemodel$bmi)
 
-```{r}
 # converting "N/A" to "NA"
-df_strokemodel$bmi[df_strokemodel$bmi == "N/A"] <- NA
+df_strokemodel$bmi[df_strokemodel$bmi == "N/A"] <-  NA
 
 #replace bmi NA values with median values
 bmi_median <-  median(df_strokemodel$bmi, na.rm = TRUE)
@@ -91,7 +97,8 @@ graph6 <- ggplot(df_strokemodel, aes(x="", y =stroke, fill= Residence_type))+ ge
 
 
 
-grid.arrange(graph1,graph2,graph3, graph4, graph5, graph6, ncol = 4)
+grid.arrange(graph1,graph2,graph3, ncol = 3)
+grid.arrange(graph4, graph5, graph6, ncol=3)
 
 ```
 
@@ -123,6 +130,7 @@ age_graph <- ggplot(data = df_strokemodel) + geom_histogram(mapping = aes(x = ag
 
 #first convert categorical to  character  variable 
 copyofdf_strokemodel <- df_strokemodel
+
 
 
 suppressWarnings(copyofdf_strokemodel$gender <- (as.character(copyofdf_strokemodel$gender)))
@@ -194,10 +202,12 @@ copyofdf_strokemodel_quantvar <- subset(copyofdf_strokemodel, select = -c(work_t
 copyofdf_strokemodel_cor <- round(cor(copyofdf_strokemodel_quantvar),2)
 
 library(ggplot2)
-library(reshape2)
+
 #upload libraries again for the corr heat map
 
-stroke_corr_heatmap <- ggplot(data = melt(copyofdf_strokemodel_cor),aes(x=Var1, y=Var2, fill=value)) + geom_tile() +  scale_fill_gradient2(low = "#547a0a", high = "#bc7543", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(axis.text.x = element_text(angle = 30))
+stroke_corr_heatmap <- ggplot(data=reshape2::melt(copyofdf_strokemodel_cor),aes(x=Var1, y=Var2, fill=value)) + geom_tile() +  scale_fill_gradient2(low = "#547a0a", high = "#bc7543", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(axis.text.x = element_text(angle = 30))
+
+stroke_corr_heatmap
 
 #The correlation heatmap shows us that there is a correlation between age and ever married which is expected however the value of 0.25 for stroke and age shows a hint of correlation. Whereas we see residence type and stroke have a correlation of -0.02. 
 
@@ -219,7 +229,7 @@ bmi_age_plot
 ```
 
 
-##Logistic Regression  for Modelling 
+## Logistic Regression  for Modelling 
 
 ```{r}
 ##pre-processing for Logistic Regression
@@ -281,9 +291,13 @@ confusionMatrix(data = as.factor(as.numeric(model.prob>0.5)), reference = as.fac
 ```
 
 
-##Alternatively, we can use random forest too 
+## Random Foresst for Modelling
 
 ```{r}
+
+
+##Alternatively, we can use random forest too 
+
 #change into factors 
 df_strokemodel_randomForest <- df_strokemodel
 df_strokemodel_randomForest$hypertension <- as.factor(df_strokemodel_randomForest
@@ -318,7 +332,7 @@ rf_model<-randomForest(formula= stroke~.,data = train, na.action=na.roughfix)
 rf_model
 ```
 
-
+## Conufusion Matrix 
 
 ```{r}
 confusionMatrix(predict(rf_model, test), test$stroke)
