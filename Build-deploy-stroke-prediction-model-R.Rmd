@@ -193,6 +193,10 @@ copyofdf_strokemodel_quantvar <- subset(copyofdf_strokemodel, select = -c(work_t
 
 copyofdf_strokemodel_cor <- round(cor(copyofdf_strokemodel_quantvar),2)
 
+library(ggplot2)
+library(reshape2)
+#upload libraries again for the corr heat map
+
 stroke_corr_heatmap <- ggplot(data = melt(copyofdf_strokemodel_cor),aes(x=Var1, y=Var2, fill=value)) + geom_tile() +  scale_fill_gradient2(low = "#547a0a", high = "#bc7543", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(axis.text.x = element_text(angle = 30))
 
 #The correlation heatmap shows us that there is a correlation between age and ever married which is expected however the value of 0.25 for stroke and age shows a hint of correlation. Whereas we see residence type and stroke have a correlation of -0.02. 
