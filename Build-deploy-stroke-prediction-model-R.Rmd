@@ -1,0 +1,337 @@
+---
+title: "Build and deploy a stroke prediction model using R"
+date: "`r Sys.Date()`"
+output: html_document
+author: "Shifa Maqsood"
+---
+
+# About Data Analysis Report
+
+This RMarkdown file contains the report of the data analysis done for the project on building and deploying a stroke prediction model in R. It contains analysis such as data exploration, summary statistics and building the prediction models. The final report was completed on `r date()`. 
+
+**Data Description:**
+
+According to the World Health Organization (WHO) stroke is the 2nd leading cause of death globally, responsible for approximately 11% of total deaths.
+
+This data set is used to predict whether a patient is likely to get stroke based on the input parameters like gender, age, various diseases, and smoking status. Each row in the data provides relevant information about the patient.
+
+
+
+## Load data and install packages
+
+```{r}
+df_strokemodel <- read.csv("healthcare-dataset-stroke-data.csv")
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(reshape2)
+library(randomForest)
+library(gridExtra)
+
+df_strokemodel <- df_strokemodel %>%
+  select(-id)
+```
+
+
+## Describe and explore the data
+
+```{r}
+glimpse(df_strokemodel)
+summary(df_strokemodel)
+df_strokemodel <- df_strokemodel[!df_strokemodel$gender == 'Other',]
+
+```
+
+### Pre-Processing 
+
+```{r}
+# converting "N/A" to "NA"
+df_strokemodel$bmi[df_strokemodel$bmi == "N/A"] <- NA
+
+#replace bmi NA values with median values
+bmi_median <-  median(df_strokemodel$bmi, na.rm = TRUE)
+df_strokemodel$bmi[is.na(df_strokemodel$bmi)] <- bmi_median
+
+# converting variables stroke,hypertension and heart disease to categorical factors 
+df_strokemodel$stroke <- ifelse(df_strokemodel$stroke == 1, 'stroke', 'no stroke') 
+df_strokemodel$hypertension <- ifelse(df_strokemodel$hypertension == 1, 'hypertension', 'no hypertension') 
+df_strokemodel$heart_disease <- ifelse(df_strokemodel$heart_disease == 1, 'heart disease', 'no heart disease') 
+
+# convert from  numeric/character to factor.  check the type  by using str()
+
+df_strokemodel$bmi <- as.numeric(df_strokemodel$bmi)
+
+df_strokemodel$gender <- as.factor(df_strokemodel$gender )
+df_strokemodel$ever_married <- as.factor(df_strokemodel$ever_married)
+df_strokemodel$work_type <- as.factor(df_strokemodel$work_type)
+df_strokemodel$Residence_type <- as.factor(df_strokemodel$Residence_type)
+df_strokemodel$smoking_status <- as.factor(df_strokemodel$smoking_status)
+
+```
+
+## Exploratory Data Analysis 
+```{r}
+#Conducting Data Visualization helps visualize the basic visual information. 
+
+graph1 <- ggplot(df_strokemodel, aes(x=" ", y = gender, fill= gender)) + geom_bar(stat="identity", width=1)  + coord_polar("y", start=0)
+
+graph2 <- ggplot(df_strokemodel, aes(x="", y =hypertension, fill= hypertension))+ geom_bar(stat="identity", width=1)  + coord_polar("y", start=0)
+
+
+
+graph3 <- ggplot(df_strokemodel, aes(x="", y =heart_disease, fill= heart_disease))+ geom_bar(stat="identity", width=1)  + coord_polar("y", start=0)
+
+
+graph4 <- ggplot(df_strokemodel, aes(x="", y =ever_married, fill= ever_married))+ geom_bar(stat="identity", width=1)  + coord_polar("y", start=0)
+
+graph5 <- ggplot(df_strokemodel, aes(x="", y =Residence_type, fill= Residence_type))+ geom_bar(stat="identity", width=1)  + coord_polar("y", start=0)
+
+graph6 <- ggplot(df_strokemodel, aes(x="", y =stroke, fill= Residence_type))+ geom_bar(stat="identity", width=1)  + coord_polar("y", start=0)
+
+
+
+grid.arrange(graph1,graph2,graph3, graph4, graph5, graph6, ncol = 4)
+
+```
+
+```{r}
+#exploring relation between stroke and other variables 
+
+graph_1 <- ggplot(df_strokemodel)+ geom_bar(mapping = aes(x= gender, fill= stroke))
+graph_2 <- ggplot(df_strokemodel)+ geom_bar(mapping = aes(x= smoking_status, fill= stroke))
+graph_3 <- ggplot(df_strokemodel)+ geom_bar(mapping = aes(x= heart_disease, fill= stroke))
+graph_4 <- ggplot(df_strokemodel)+ geom_bar(mapping = aes(x= hypertension, fill= stroke))
+graph_5 <- ggplot(df_strokemodel)+ geom_bar(mapping = aes(x= work_type, fill= stroke))
+graph_6 <-ggplot(df_strokemodel)+ geom_bar(mapping = aes(x= Residence_type, fill= stroke))
+
+
+
+grid.arrange(graph_1, graph_2, graph_3, ncol=2)
+
+grid.arrange(graph_4, graph_5, graph_6, ncol= 2)
+
+
+
+age_graph <- ggplot(data = df_strokemodel) + geom_histogram(mapping = aes(x = age), binwidth = 0.5)
+
+```
+
+## Pearson's Correlation 
+```{r}
+#computing Pearson's correlation between all the variables 
+
+#first convert categorical to  character  variable 
+copyofdf_strokemodel <- df_strokemodel
+
+
+suppressWarnings(copyofdf_strokemodel$gender <- (as.character(copyofdf_strokemodel$gender)))
+
+suppressWarnings(copyofdf_strokemodel$ever_married <- (as.character(copyofdf_strokemodel$ever_married)))
+
+suppressWarnings(copyofdf_strokemodel$Residence_type <- (as.character(copyofdf_strokemodel$Residence_type)))
+
+suppressWarnings(copyofdf_strokemodel$work_type <- (as.character(copyofdf_strokemodel$work_type)))
+
+suppressWarnings(copyofdf_strokemodel$smoking_status <- (as.character(copyofdf_strokemodel$smoking_status)))
+
+#then convert to binary then convert to numeric 
+  
+  #gender
+copyofdf_strokemodel$gender[copyofdf_strokemodel$gender =="Male"] <-0
+copyofdf_strokemodel$gender[copyofdf_strokemodel$gender =="Female"] <-1
+
+copyofdf_strokemodel$gender <- as.numeric(copyofdf_strokemodel$gender)
+
+  #hypertension 
+copyofdf_strokemodel$hypertension[copyofdf_strokemodel$hypertension == "no hypertension"] <- 0
+copyofdf_strokemodel$hypertension[copyofdf_strokemodel$hypertension == "hypertension"] <-1
+
+copyofdf_strokemodel$hypertension <- as.numeric(copyofdf_strokemodel$hypertension)
+
+  #heart_disease 
+
+copyofdf_strokemodel$heart_disease[copyofdf_strokemodel$heart_disease == "no heart disease"] <- 0
+copyofdf_strokemodel$heart_disease[copyofdf_strokemodel$heart_disease == "heart disease"] <-1
+
+copyofdf_strokemodel$heart_disease <- as.numeric(copyofdf_strokemodel$heart_disease)
+
+
+  #stroke 
+
+copyofdf_strokemodel$stroke[copyofdf_strokemodel$stroke == "no stroke"] <- 0
+copyofdf_strokemodel$stroke[copyofdf_strokemodel$stroke == "stroke"] <-1
+
+copyofdf_strokemodel$stroke <-as.numeric(copyofdf_strokemodel$stroke)
+
+  #residence 
+
+
+copyofdf_strokemodel$Residence_type[copyofdf_strokemodel$Residence_type == "Urban"] <- 0
+copyofdf_strokemodel$Residence_type[copyofdf_strokemodel$Residence_type == "Rural"] <-1
+
+copyofdf_strokemodel$Residence_type <-as.numeric(copyofdf_strokemodel$Residence_type)
+
+  #ever_married
+
+copyofdf_strokemodel$ever_married[copyofdf_strokemodel$ever_married == "No"] <- 0
+copyofdf_strokemodel$ever_married[copyofdf_strokemodel$ever_married == "Yes"] <-1
+
+# turn them into numeric after coverting  into factor or else values will be replaced by NA
+
+copyofdf_strokemodel$ever_married <-as.numeric(copyofdf_strokemodel$ever_married)
+
+
+#change unknown to never smoked 
+
+copyofdf_strokemodel <- copyofdf_strokemodel %>%
+  mutate(smoking_status = replace(smoking_status, smoking_status == "Unknown", "never smoked"))
+ 
+# drop work type and smoking status 
+copyofdf_strokemodel_quantvar <- subset(copyofdf_strokemodel, select = -c(work_type, smoking_status))
+
+
+copyofdf_strokemodel_cor <- round(cor(copyofdf_strokemodel_quantvar),2)
+
+stroke_corr_heatmap <- ggplot(data = melt(copyofdf_strokemodel_cor),aes(x=Var1, y=Var2, fill=value)) + geom_tile() +  scale_fill_gradient2(low = "#547a0a", high = "#bc7543", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(axis.text.x = element_text(angle = 30))
+
+#The correlation heatmap shows us that there is a correlation between age and ever married which is expected however the value of 0.25 for stroke and age shows a hint of correlation. Whereas we see residence type and stroke have a correlation of -0.02. 
+
+
+```
+
+
+
+```{r}
+# Are people with high bmi and age  likely to get a stroke?
+
+bmi_age_plot <- ggplot(data = df_strokemodel, aes(x = age, y= bmi, color = stroke))+geom_point()
+
+bmi_age_plot
+
+#this plot clearly shows that as patients age, they have a high chance of getting a stroke,
+#although with bmi, there is a also a likelihood of getting a stroke with a lesser bmi but chances increase as the age and bmi increase.
+
+```
+
+
+##Logistic Regression  for Modelling 
+
+```{r}
+##pre-processing for Logistic Regression
+#make more dummy variables since we can only use binary 
+# for work type and smoking status 
+
+dummydataset <- copyofdf_strokemodel %>%
+      mutate(work_type = case_when(work_type == "children" ~0,
+                               work_type == "Never_worked" ~1,
+                               work_type == "Private" ~2,
+                               work_type == "Govt_job" ~3,
+                               work_type == "Self-employed" ~4),
+             smoking_status = case_when(smoking_status == "never smoked" ~0,
+                                    smoking_status == "formerly smoked" ~1,
+                                    smoking_status == "smokes" ~2,
+                                    smoking_status == "Unknown" ~3))
+data_regression_model <- dummydataset[,c("age","hypertension","avg_glucose_level","heart_disease","smoking_status", "stroke")]
+
+## data_regression_model includes the variables we need for our regression 
+
+
+```
+
+```{r}
+
+Training <- createDataPartition(y = data_regression_model$stroke, p= 0.7, list = FALSE)
+
+training <- data_regression_model[Training,]
+testing <- data_regression_model[-Training,]
+
+#now we have two variables, testing and training for our regression model
+#we will train it on training data set
+#training is 70% of our original  dataset as dim(training) can be used to verify 
+
+model <- glm(stroke~., family = binomial(link = 'logit'), data = training)
+
+summary(model)
+
+
+
+```
+
+
+
+```{r}
+anova(model, test = "Chisq")
+```
+
+
+
+
+```{r}
+model.prob <- predict(model, testing, type = "response")
+```
+
+
+```{r}
+confusionMatrix(data = as.factor(as.numeric(model.prob>0.5)), reference = as.factor(testing$stroke))
+```
+
+
+##Alternatively, we can use random forest too 
+
+```{r}
+#change into factors 
+df_strokemodel_randomForest <- df_strokemodel
+df_strokemodel_randomForest$hypertension <- as.factor(df_strokemodel_randomForest
+                                                      $hypertension)
+
+df_strokemodel_randomForest$heart_disease <- as.factor(df_strokemodel_randomForest
+                                                      $heart_disease)
+
+df_strokemodel_randomForest$stroke <- as.factor(df_strokemodel_randomForest
+                                                      $stroke)
+
+n_obs <- nrow(df_strokemodel_randomForest)
+split <- round(n_obs*0.7)
+train <- df_strokemodel_randomForest[1:split,]
+
+test <- df_strokemodel_randomForest[(split+1):nrow(df_strokemodel_randomForest),]
+
+dim(train)
+dim(test)
+
+
+
+
+
+```
+
+```{r}
+
+set.seed(123)
+
+rf_model<-randomForest(formula= stroke~.,data = train, na.action=na.roughfix)
+rf_model
+```
+
+
+
+```{r}
+confusionMatrix(predict(rf_model, test), test$stroke)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
