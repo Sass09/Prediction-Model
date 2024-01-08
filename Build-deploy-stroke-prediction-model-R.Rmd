@@ -205,7 +205,7 @@ library(ggplot2)
 
 #upload libraries again for the corr heat map
 
-stroke_corr_heatmap <- ggplot(data=reshape2::melt(copyofdf_strokemodel_cor),aes(x=Var1, y=Var2, fill=value)) + geom_tile() +  scale_fill_gradient2(low = "#547a0a", high = "#bc7543", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(axis.text.x = element_text(angle = 30))
+stroke_corr_heatmap <- ggplot(data=reshape2::melt(copyofdf_strokemodel_cor),aes(x=Var1, y=Var2, fill=value)) + geom_tile() +  scale_fill_gradient2(low = "pink", high = "orange", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(axis.text.x = element_text(angle = 30))
 
 stroke_corr_heatmap
 
